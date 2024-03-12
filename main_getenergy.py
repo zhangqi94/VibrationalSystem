@@ -13,28 +13,6 @@ print(subprocess.run(['nvidia-smi'], stdout=subprocess.PIPE, text=True).stdout, 
 key = jax.random.PRNGKey(42)
 
 ####################################################################################
-"""
-srun -p v100 --pty --gres=gpu:1 -t 0-9999:00 /bin/bash
-srun -p a800 --pty --gres=gpu:1 -t 0-9999:00 /bin/bash
-srun -p a100 -N 1 --gres=gpu:A100_40G:1 --pty /bin/bash
-srun -p a100 -N 1 --gres=gpu:A100_80G:1 --pty /bin/bash
-
-.venv/bin/python3.11 ./main_getenergy.py  \
-    --file_name "/data/ruisiwang/Vibration_gitlab_repo/CH3CN/CH3CN_n_12_alp_1000_orb_84_rnvp_16_mlp_128_2_mcthr_20_stp_200_std_0.2_adamlr_0.001_clp_5_bth_1024_acc_1_nde_1/epoch_008300.pkl"\
-    --num_devices=1  --batch=1024  --acc_steps=1  --mc_therm=20  --mc_steps=200  --mc_stddev=0.2 \
-    --cal_orb 0 1 3 4 6 7 10 11 9 13 15 16 17 18 20 25 56 55 79 82
-
-.venv/bin/python3.11 ./main_getenergy.py  \
-    --file_name "/data/ruisiwang/Vibration_gitlab_repo/CH3CN/CH3CN_n_12_alp_1000_orb_84_rnvp_16_mlp_256_2_mcthr_20_stp_200_std_0.2_adamlr_0.001_clp_5_bth_1024_acc_1_nde_1/epoch_004000.pkl"\
-    --num_devices=1  --batch=1024  --acc_steps=1  --mc_therm=20  --mc_steps=200  --mc_stddev=0.2 \
-    --cal_orb 0 1 3 4 6 7 10 11 9 13 15 16 17 18 20 25 56 55 79 82
-
-.venv/bin/python3.11 ./main_getenergy.py  \
-    --file_name "/data/ruisiwang/Vibration_gitlab_repo/CH3CN/CH3CN_n_12_alp_1000_orb_84_rnvp_32_mlp_128_2_mcthr_20_stp_200_std_0.2_adamlr_0.001_clp_5_bth_1024_acc_1_nde_1/epoch_004200.pkl"\
-    --num_devices=1  --batch=1024  --acc_steps=1  --mc_therm=20  --mc_steps=200  --mc_stddev=0.2 \
-    --cal_orb 0 1 3 4 6 7 10 11 9 13 15 16 17 18 20 25 56 55 79 82
-"""
-####################################################################################
 #========== file name ==========
 import argparse
 parser = argparse.ArgumentParser(description="calculate exicted energy")
