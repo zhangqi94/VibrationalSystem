@@ -50,3 +50,10 @@ def get_colors(colornums = 8):
     return colors
 
 ####################################################################################
+
+def moving_average(a, window_size):
+    cumsum = np.cumsum(a, dtype=float)
+    moving_avgs = np.zeros(len(a))
+    moving_avgs[:window_size] = cumsum[:window_size] / (np.arange(window_size) + 1)
+    moving_avgs[window_size:] = (cumsum[window_size:] - cumsum[:-window_size]) / window_size
+    return moving_avgs

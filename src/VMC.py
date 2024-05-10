@@ -49,7 +49,7 @@ def sample_x_mcmc(key, state_indices,
 ####################################################################################
 
 def make_loss(logpsi, logpsi_grad_laplacian, potential_energy, clip_factor, 
-              batch_per_device, num_orb):
+              batch_per_device, num_orb, print_levels=0):
 
     def observable_and_lossfn(params_flow, state_indices, x, key):
         #========== calculate Eloc & E_mean ==========
@@ -71,6 +71,11 @@ def make_loss(logpsi, logpsi_grad_laplacian, potential_energy, clip_factor,
         print("LossV.shape", LossV.shape)
         print("LossE.shape", LossE.shape)
         
+        if print_levels:
+            Levels = Eloc.reshape(batch_per_device, num_orb)
+            print("Levels.shape", Levels.shape)
+            Levels = jax.lax.pmean(Levels.mean(axis=0), axis_name="p")
+        
         K_mean,  K2_mean,  V_mean,  V2_mean,  E_mean,  E2_mean, \
         LK_mean, LK2_mean, LV_mean, LV2_mean, LE_mean, LE2_mean = \
         jax.tree_map(lambda x: jax.lax.pmean(x, axis_name="p"), 
@@ -81,13 +86,22 @@ def make_loss(logpsi, logpsi_grad_laplacian, potential_energy, clip_factor,
                       LossV.mean(),   (LossV**2).mean(),
                       LossE.mean(),   (LossE**2).mean(),
                       ))
-   
-        observable = {"K_mean": K_mean, "K2_mean": K2_mean,
-                      "V_mean": V_mean, "V2_mean": V2_mean,
-                      "E_mean": E_mean, "E2_mean": E2_mean,
-                      "LK_mean": LK_mean, "LK2_mean": LK2_mean,
-                      "LV_mean": LV_mean, "LV2_mean": LV2_mean,
-                      "LE_mean": LE_mean, "LE2_mean": LE2_mean}
+
+        if print_levels:
+            observable = {"K_mean": K_mean, "K2_mean": K2_mean,
+                        "V_mean": V_mean, "V2_mean": V2_mean,
+                        "E_mean": E_mean, "E2_mean": E2_mean,
+                        "LK_mean": LK_mean, "LK2_mean": LK2_mean,
+                        "LV_mean": LV_mean, "LV2_mean": LV2_mean,
+                        "LE_mean": LE_mean, "LE2_mean": LE2_mean,
+                        "Levels": Levels}
+        else:
+            observable = {"K_mean": K_mean, "K2_mean": K2_mean,
+                        "V_mean": V_mean, "V2_mean": V2_mean,
+                        "E_mean": E_mean, "E2_mean": E2_mean,
+                        "LK_mean": LK_mean, "LK2_mean": LK2_mean,
+                        "LV_mean": LV_mean, "LV2_mean": LV2_mean,
+                        "LE_mean": LE_mean, "LE2_mean": LE2_mean}
 
         def quant_lossfn(params_flow):
             logpsix = logpsi(x, params_flow, state_indices)

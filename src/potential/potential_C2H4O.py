@@ -701,6 +701,8 @@ def get_potential_energy_C2H4O(alpha=1000):
     w = w0 / alpha
     sqrtw = np.sqrt(w)
     
+    k2 = (1/2) * jnp.diag(w**2)
+    
     k30 = get_k30()
     print("k30, non-zero terms:", np.count_nonzero(k30))
     k3 = jnp.einsum('ijk,i,j,k->ijk', k30, sqrtw, sqrtw, sqrtw) / alpha
@@ -720,7 +722,8 @@ def get_potential_energy_C2H4O(alpha=1000):
            
         return V
 
-    return potential_energy, jnp.array(w)
+    return potential_energy, jnp.array(w, dtype=jnp.float64), \
+        jnp.array(k2, dtype=jnp.float64), jnp.array(k3, dtype=jnp.float64), jnp.array(k4, dtype=jnp.float64)
 
 ####################################################################################
 # test

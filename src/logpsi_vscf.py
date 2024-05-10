@@ -1,11 +1,10 @@
 import jax
-jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
 from functools import partial
-from .phibase import logphi_base
+from .phibase import logphi_base_vscf
 
 ####################################################################################
-def make_logpsi(flow, sp_orbitals, orb_state, w_indices):
+def make_logpsi(flow, sp_orbitals, orb_state, w_indices, C_vscf):
     """
         Computes the logrithm of the wavefunction:
             log_psi = log_phi + 0.5*log_jacdet.
@@ -13,20 +12,20 @@ def make_logpsi(flow, sp_orbitals, orb_state, w_indices):
     def logpsi(x, params, state_indices):
         ## calculate logphi & logjacdet
         z, logjacdet = flow.apply(params, None, x)
-        log_phi = logphi_base(sp_orbitals, orb_state[state_indices], w_indices, z)
+        log_phi = logphi_base_vscf(sp_orbitals, orb_state[state_indices], w_indices, C_vscf, z)
         return jnp.stack([log_phi.real + 0.5*logjacdet, log_phi.imag])
     
     return logpsi
 
 ####################################################################################
-def make_logphi_logjacdet(flow, sp_orbitals, orb_state, w_indices):
+def make_logphi_logjacdet(flow, sp_orbitals, orb_state, w_indices, C_vscf):
     """              
         The same functionality as `make_logpsi`, but the two terms involving the base
     wavefunction and the jacobian determinant are separated.
     """
     def logphi(x, params, state_indices):   
         z, _ = flow.apply(params, None, x)
-        log_phi = logphi_base(sp_orbitals, orb_state[state_indices], w_indices, z)
+        log_phi = logphi_base_vscf(sp_orbitals, orb_state[state_indices], w_indices, C_vscf, z)
         return jnp.stack([log_phi.real, log_phi.imag])
 
     def logjacdet(x, params):

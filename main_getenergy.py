@@ -34,13 +34,15 @@ cal_orb = args.cal_orb
 #========== load file ==========
 from src.checkpoint import load_data
 datas = load_data(file_name)
+print(file_name)
 
 mode, w2_indices, lam = datas["mode"], datas["w2_indices"], datas["lam"]
 n, dim, num_orb, alpha = datas["n"], datas["dim"], datas["num_orb"], datas["alpha"]
+choose_orb = datas["choose_orb"]
 flow_type = datas["flow_type"]
 flow_depth, mlp_width, mlp_depth = datas["flow_depth"], datas["mlp_width"], datas["mlp_depth"]
 dsf_width, dsf_depth = datas["dsf_width"], datas["dsf_depth"]
-
+vscf_base, vscf_nlev, C_vscf = datas["vscf_base"], datas["vscf_nlev"], datas["C_vscf"]
 
 params_flow = datas["params_flow"]
 
@@ -69,13 +71,16 @@ print("Harmonic oscillator:\n    mode: %s, n: %d, dim: %d" % (mode, n, dim), flu
 # mode type: H2O, C2H4O, H2CO, NDCO, mode-2 (toy model), mode-3 (toy model)
 if mode == "H2O":
     from src.potential import get_potential_energy_water
-    potential_energy, w_indices = get_potential_energy_water(alpha=alpha)
+    potential_energy, w_indices, k2, k3, k4 = get_potential_energy_water(alpha=alpha)
 elif mode == "H2CO":
     from src.potential import get_potential_energy_H2CO
-    potential_energy, w_indices = get_potential_energy_H2CO(alpha=alpha)
+    potential_energy, w_indices, k2, k3, k4 = get_potential_energy_H2CO(alpha=alpha)
 elif mode == "C2H4O":
     from src.potential import get_potential_energy_C2H4O
-    potential_energy, w_indices = get_potential_energy_C2H4O(alpha=alpha)
+    potential_energy, w_indices, k2, k3, k4 = get_potential_energy_C2H4O(alpha=alpha)
+elif mode == "CH3CN":
+    from src.potential import get_potential_energy_CH3CN
+    potential_energy, w_indices, k2, k3, k4 = get_potential_energy_CH3CN(alpha=alpha)
 elif mode == "NDCO": # N-dimensional coupled oscillator
     from src.potential import get_potential_energy_NDCO, calculate_exact_energy_NDCO
     potential_energy, w_indices = get_potential_energy_NDCO(D=n)
@@ -85,16 +90,14 @@ elif mode == "TOY2": # two-mode system
 elif mode == "TOY3": # three-mode system
     from src.potential import get_potential_energy_mode3
     potential_energy, w_indices = get_potential_energy_mode3(lam, w2_indices)    
-elif mode == "CH3CN":
-    from src.potential import get_potential_energy_CH3CN
-    potential_energy, w_indices = get_potential_energy_CH3CN(alpha=alpha)
 
 if len(w_indices) != n: raise ValueError("Number of modes is not consistent!")
 invsqrtw = 1/jnp.sqrt(w_indices)
 
 ####################################################################################
 print("\n========== Initialize orbitals ==========")
-from src.potential.orbitals import get_orbitals_1d, get_orbitals_indices_first, orbitals_array2str
+from src.potential.orbitals import get_orbitals_1d, get_orbitals_indices_first, \
+    orbitals_array2str, choose_orbitals
 if dim != 1: raise ValueError("Only dim = 1 is supported!")
 sp_orbitals, _ = get_orbitals_1d()
 
@@ -111,10 +114,30 @@ elif mode == "TOY2" or mode == "TOY3": # toy model, mode2 or mode3
     for ii in range(num_orb):
         print("    %d, E: %.12f, level:" %(ii, orb_Es[ii]), orb_state[ii], flush=True)
 else: ## H2O, C2H4O, H2CO
-    print("Energy of non-interacting system:")
-    for ii in range(num_orb):  
-        print("    %d, E: %.2f, level:" %(ii, orb_Es[ii]), orbitals_array2str(orb_state[ii]), flush=True)
+    # print("Energy of non-interacting system:")
+    # for ii in range(num_orb):  
+    #     print("    %d, E: %.2f, level:" %(ii, orb_Es[ii]), orbitals_array2str(orb_state[ii]), flush=True)
+    if choose_orb == None:
+        orb_index, orb_state, orb_Es = get_orbitals_indices_first(w_indices, max_orb=1000, num_orb = num_orb)
+        orb_Es = orb_Es * alpha
+        print("Energy of non-interacting system:")
+        for ii in range(num_orb):  
+            print("    %d, E: %.2f, level:" %(ii, orb_Es[ii]), orbitals_array2str(orb_state[ii]), flush=True)
+    elif choose_orb != None:
+        if len(choose_orb) != num_orb: raise ValueError("Number of orbitals is not consistent!")
+        _, orb_state, orb_Es = get_orbitals_indices_first(w_indices, max_orb=1000, num_orb = 1000)
+        orb_index, orb_state, orb_Es = choose_orbitals(orb_state, orb_Es * alpha, choose_orb)
+        print("\nEnergy of non-interacting system:(choose states!)")
+        for ii in range(num_orb):  
+            print("    %d, E: %.2f, level:" %(ii, orb_Es[ii]), orbitals_array2str(orb_state[ii]), flush=True)
 
+####################################################################################
+print("\n========== Vibrational self-consistent field ==========")
+if vscf_base:
+    print("vscf coefficient:")
+    for i in range(n):
+        print("    mode %d:" % i, C_vscf[i], flush=True)
+        
 ####################################################################################
 print("\n========== Initialize flow model & logpsi_wavefunction ==========")
 if flow_type == "NAF":
@@ -126,16 +149,26 @@ if flow_type == "RNVP":
     import src.flow_RNVP
     flow = src.flow_RNVP.make_flow(key, flow_depth, mlp_width, mlp_depth, n*dim)
     print("RNVP:    depth: %d" % flow_depth, ",  mlp hidden layers: %d, %d" %(mlp_width, mlp_depth))
+if flow_type == "RNVPsingle":
+    import src.flow_RNVPsingle
+    flow = src.flow_RNVPsingle.make_flow(key, flow_depth, mlp_width, mlp_depth, n*dim)
+    print("RNVP:    depth: %d" % flow_depth, ",  mlp hidden layers: %d, %d" %(mlp_width, mlp_depth))
 
 params_flow = datas["params_flow"] # load params of flow from file
 raveled_params_flow, _ = ravel_pytree(params_flow)
 print("    parameters in the flow model: %d" % raveled_params_flow.size, flush=True)
 
 #========== logpsi = logphi + 0.5*logjacdet ==========
-import src.logpsi
-logpsi_novmap = src.logpsi.make_logpsi(flow, sp_orbitals, orb_state, w_indices)
-logphi, logjacdet = src.logpsi.make_logphi_logjacdet(flow, sp_orbitals, orb_state, w_indices)
-logp = src.logpsi.make_logp(logpsi_novmap)
+if vscf_base:
+    import src.logpsi_vscf
+    logpsi_novmap = src.logpsi_vscf.make_logpsi(flow, sp_orbitals, orb_state, w_indices, C_vscf)
+    logphi, logjacdet = src.logpsi_vscf.make_logphi_logjacdet(flow, sp_orbitals, orb_state, w_indices, C_vscf)
+    logp = src.logpsi_vscf.make_logp(logpsi_novmap)
+else: 
+    import src.logpsi
+    logpsi_novmap = src.logpsi.make_logpsi(flow, sp_orbitals, orb_state, w_indices)
+    logphi, logjacdet = src.logpsi.make_logphi_logjacdet(flow, sp_orbitals, orb_state, w_indices)
+    logp = src.logpsi.make_logp(logpsi_novmap)
 
 ####################################################################################
 print("\n========== Check point ==========")
@@ -159,7 +192,11 @@ params_flow = replicate(params_flow, num_devices)
 print("x.shape:", x.shape)
 
 #========== grad, laplacian ==========
-logpsi, logpsi_grad_laplacian = src.logpsi.make_logpsi_grad_laplacian(logpsi_novmap, forloop=True,
+if vscf_base:
+    logpsi, logpsi_grad_laplacian = src.logpsi_vscf.make_logpsi_grad_laplacian(logpsi_novmap, forloop=True,
+                                        hutchinson=hutchinson, logphi=logphi, logjacdet=logjacdet)
+else:
+    logpsi, logpsi_grad_laplacian = src.logpsi.make_logpsi_grad_laplacian(logpsi_novmap, forloop=True,
                                         hutchinson=hutchinson, logphi=logphi, logjacdet=logjacdet)
 
 #========== observable, loss function ==========
@@ -274,17 +311,17 @@ for jj in cal_n_orbital:
 #             " E: %.6f (%.6f)" % (list_E[jj], jnp.sqrt(list_Estd[jj])),
 #             orbitals_array2str(orb_state[index])) 
 
-# print("\nSummarize (3): E - E0")
-# for jj in cal_n_orbital:
-#     index = jnp.array([jj])[0]
-#     if jj == 0:
-#         print("level %.3d:" %index,
-#                 " E: %.2f (%.2f)" % (list_E[jj], list_Estd[jj]), 
-#                 orbitals_array2str(orb_state[index])) 
-#     else:
-#         print("level %.3d:" %index, 
-#                 " E: %.2f (%.2f)" % ((list_E[jj] - list_E[0]), 
-#                                     (jnp.sqrt(list_Estd[jj]**2 + list_Estd[0]**2))),
-#                 orbitals_array2str(orb_state[index])) 
+print("\nSummarize (3): E - E0")
+for jj in cal_n_orbital:
+    index = jnp.array([jj])[0]
+    if jj == 0:
+        print("level %.3d:" %index,
+                " E: %.2f (%.2f)" % (list_E[jj], list_Estd[jj]), 
+                orbitals_array2str(orb_state[index])) 
+    else:
+        print("level %.3d:" %index, 
+                " E: %.2f (%.2f)" % ((list_E[jj] - list_E[0]), 
+                                    (jnp.sqrt(list_Estd[jj]**2 + list_Estd[0]**2))),
+                orbitals_array2str(orb_state[index])) 
 
 print("")
