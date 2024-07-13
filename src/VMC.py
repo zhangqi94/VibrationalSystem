@@ -89,11 +89,18 @@ def make_loss(logpsi, logpsi_grad_laplacian, potential_energy, clip_factor,
                       "LV_mean": LV_mean, "LV2_mean": LV2_mean,
                       "LE_mean": LE_mean, "LE2_mean": LE2_mean}
 
+        b = (Eloc.reshape(batch_per_device, num_orb))
+        b = jnp.tile(b.mean(axis=0), (batch_per_device, 1))
+        b = b.reshape(batch_per_device*num_orb, )
+
         def quant_lossfn(params_flow):
             logpsix = logpsi(x, params_flow, state_indices)
 
-            tv = jax.lax.pmean(jnp.abs(Eloc - E_mean).mean(), axis_name="p")
-            Eloc_clipped = jnp.clip(Eloc, E_mean - clip_factor*tv, E_mean + clip_factor*tv)
+            #tv = jax.lax.pmean(jnp.abs(Eloc - E_mean).mean(), axis_name="p")
+            #Eloc_clipped = jnp.clip(Eloc, E_mean - clip_factor*tv, E_mean + clip_factor*tv)
+            tv = jax.lax.pmean(jnp.abs(Eloc - b).mean(), axis_name="p")
+            Eloc_clipped = jnp.clip(Eloc, b - clip_factor*tv, b + clip_factor*tv)
+          
             gradF_theta = 2 * (logpsix * Eloc_clipped.conj()).real.mean()
             quantum_score = 2 * logpsix.real.mean()
             return gradF_theta, quantum_score
