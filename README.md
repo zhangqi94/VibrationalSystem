@@ -128,13 +128,19 @@ orbitals to be chosen to calculate energies.
 ## To cite
 
 ```
-@misc{zhang2024solving,
-      title={Solving vibrational Hamiltonians with neural canonical transformations}, 
-      author={Qi Zhang and Rui-Si Wang and Lei Wang},
-      year={2024},
-      eprint={2403.12518},
-      archivePrefix={arXiv},
-      primaryClass={physics.chem-ph}
+@article{10.1063/5.0209255,
+    author = {Zhang, Qi and Wang, Rui-Si and Wang, Lei},
+    title = "{Neural canonical transformations for vibrational spectra of molecules}",
+    journal = {The Journal of Chemical Physics},
+    volume = {161},
+    number = {2},
+    pages = {024103},
+    year = {2024},
+    month = {07},
+    issn = {0021-9606},
+    doi = {10.1063/5.0209255},
+    url = {https://doi.org/10.1063/5.0209255},
+    eprint = {https://pubs.aip.org/aip/jcp/article-pdf/doi/10.1063/5.0209255/20033705/024103\_1\_5.0209255.pdf},
 }
 ```
 
